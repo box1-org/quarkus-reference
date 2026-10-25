@@ -29,7 +29,8 @@ class GreetingResourceTest {
             given().when().get(path).then().statusCode(200).body("status", is("UP"));
         }
         given().when().get("/api/info").then().statusCode(200)
-            .body("name", is("quarkus-reference")).body("javaVersion", is(21));
+            .body("name", is("quarkus-reference")).body("javaVersion", is(21))
+            .body("deliveryMode", is("tekton-gitops"));
     }
 
     @Test
