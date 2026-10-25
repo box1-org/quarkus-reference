@@ -2,6 +2,8 @@
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
+  labels:
+    backstage.io/kubernetes-id: quarkus-reference
   generateName: quarkus-reference-build-
   namespace: box1-ci
 spec:

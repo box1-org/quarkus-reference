@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: quarkus-reference
+  description: Box1 Quarkus reference service
+  annotations:
+    github.com/project-slug: box1-org/quarkus-reference
+    backstage.io/kubernetes-id: quarkus-reference
+    janus-idp.io/tekton: quarkus-reference
+    argocd/instance-name: openshift-gitops
+    argocd/app-selector: backstage.io/kubernetes-id=quarkus-reference
+  tags: [java, quarkus, maven, tekton, gitops]
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/mike4263
