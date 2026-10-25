@@ -80,7 +80,7 @@ spec:
                 print('Fetched immutable application revision ' + revision)
             - name: test-and-jib-push
               image: registry.access.redhat.com/ubi9/openjdk-21@sha256:bd995811a45eb587f97a105796f8f43df466a4269411a2a1642f0f9799f885db
-              workingDir: $(workspaces.source.path)/application
+              workingDir: $(workspaces.source.path)
               computeResources:
                 requests:
                   cpu: 500m
@@ -100,6 +100,7 @@ spec:
               script: |
                 #!/bin/sh
                 set -eu
+                cd "$(workspaces.source.path)/application"
                 java -version
                 ./mvnw -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" verify -DskipITs=false
                 export QUARKUS_CONTAINER_IMAGE_USERNAME=serviceaccount
