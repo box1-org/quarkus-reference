@@ -1,0 +1,119 @@
+# Manually submitted reference build. No application deployment permissions.
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: quarkus-reference-build-
+  namespace: box1-ci
+spec:
+  taskRunTemplate:
+    serviceAccountName: ci-build
+  timeouts:
+    pipeline: 45m
+  params:
+    - name: revision
+      value: REPLACE_WITH_COMMIT_SHA
+  workspaces:
+    - name: source
+      emptyDir: {}
+  pipelineSpec:
+    params:
+      - name: revision
+        type: string
+    workspaces:
+      - name: source
+    results:
+      - name: image-digest
+        value: $(tasks.build.results.image-digest)
+    tasks:
+      - name: build
+        params:
+          - name: revision
+            value: $(params.revision)
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec:
+          params:
+            - name: revision
+              type: string
+          workspaces:
+            - name: source
+          results:
+            - name: image-digest
+              type: string
+          steps:
+            - name: fetch-source
+              image: registry.access.redhat.com/ubi9/python-311@sha256:d0b35f779ca0ae87deaf17cd1923461904f52d3ef249a53dbd487e02bdabdde6
+              env:
+                - name: HOME
+                  value: /tekton/home
+                - name: WORKSPACE
+                  value: $(workspaces.source.path)
+                - name: SOURCE_REVISION
+                  value: $(params.revision)
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: quarkus-reference-source
+                      key: token
+              script: |
+                #!/usr/bin/env python3
+                import io, os, pathlib, re, shutil, urllib.request, zipfile
+                revision = os.environ['SOURCE_REVISION']
+                assert re.fullmatch('[a-f0-9]{40}', revision), 'Use an immutable source commit SHA'
+                req = urllib.request.Request(
+                    'https://api.github.com/repos/box1-org/quarkus-reference/zipball/' + revision,
+                    headers={'Authorization': 'Bearer ' + os.environ['GITHUB_TOKEN'],
+                             'User-Agent': 'box1-quarkus-reference-build'})
+                with urllib.request.urlopen(req, timeout=60) as response:
+                    archive = zipfile.ZipFile(io.BytesIO(response.read()))
+                workspace = pathlib.Path(os.environ['WORKSPACE'])
+                unpack = workspace / 'unpack'
+                for entry in archive.infolist():
+                    path = pathlib.PurePosixPath(entry.filename)
+                    assert not path.is_absolute() and '..' not in path.parts, 'Unsafe archive path'
+                archive.extractall(unpack)
+                roots = list(unpack.iterdir())
+                assert len(roots) == 1 and roots[0].is_dir()
+                shutil.move(str(roots[0]), str(workspace / 'application'))
+                (workspace / 'application' / 'mvnw').chmod(0o755)
+                print('Fetched immutable application revision ' + revision)
+            - name: test-and-jib-push
+              image: registry.access.redhat.com/ubi9/openjdk-21@sha256:bd995811a45eb587f97a105796f8f43df466a4269411a2a1642f0f9799f885db
+              workingDir: $(workspaces.source.path)/application
+              computeResources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: '2'
+                  memory: 3Gi
+              env:
+                - name: HOME
+                  value: /tekton/home
+                - name: MAVEN_USER_HOME
+                  value: $(workspaces.source.path)/maven-home
+                - name: MAVEN_OPTS
+                  value: -Xmx1024m -Duser.home=/tekton/home
+                - name: SOURCE_REVISION
+                  value: $(params.revision)
+              script: |
+                #!/bin/sh
+                set -eu
+                java -version
+                ./mvnw -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" verify -DskipITs=false
+                export QUARKUS_CONTAINER_IMAGE_USERNAME=serviceaccount
+                export QUARKUS_CONTAINER_IMAGE_PASSWORD="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+                ./mvnw -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" package -DskipTests \
+                  -Dquarkus.container-image.build=true \
+                  -Dquarkus.container-image.push=true \
+                  -Dquarkus.container-image.registry=registry.apps.ocp.box1.org \
+                  -Dquarkus.container-image.group=box1-ci \
+                  -Dquarkus.container-image.name=quarkus-reference \
+                  -Dquarkus.container-image.tag="$SOURCE_REVISION"
+                unset QUARKUS_CONTAINER_IMAGE_PASSWORD
+                test -s target/jib-image.digest
+                grep -Eq '^sha256:[a-f0-9]{64}$' target/jib-image.digest
+                tr -d '\n' < target/jib-image.digest > "$(results.image-digest.path)"
+                printf 'Published immutable image digest: '
+                cat target/jib-image.digest
