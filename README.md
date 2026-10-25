@@ -42,6 +42,9 @@ using a short-lived, Contents-read GitHub installation token from the transient
 source-fetch step; it is not mounted in Maven build steps or the runtime.
 Revoke the token and remove that transient Secret after the build completes.
 
+The fetch step bootstraps the exact Maven ZIP pinned by the wrapper properties,
+verifies its SHA-256 and extracts it with Python. This handles the minimal UBI
+Java image without an `unzip` binary and preserves checksum verification.
 Tekton runs `verify -DskipITs=false` before building/pushing with the Quarkus Jib
 extension. It uses the existing `ci-build` identity, writes only to the `box1-ci`
 registry project, and has no application deployment permissions. This trusted

@@ -58,7 +58,7 @@ spec:
                       key: token
               script: |
                 #!/usr/bin/env python3
-                import io, os, pathlib, re, shutil, urllib.request, zipfile
+                import hashlib, io, os, pathlib, re, shutil, urllib.request, zipfile
                 revision = os.environ['SOURCE_REVISION']
                 assert re.fullmatch('[a-f0-9]{40}', revision), 'Use an immutable source commit SHA'
                 req = urllib.request.Request(
@@ -77,7 +77,22 @@ spec:
                 assert len(roots) == 1 and roots[0].is_dir()
                 shutil.move(str(roots[0]), str(workspace / 'application'))
                 (workspace / 'application' / 'mvnw').chmod(0o755)
+                # Minimal UBI Java images omit unzip. Bootstrap the exact wrapper
+                # distribution in Python rather than letting mvnw switch to a
+                # tarball while retaining the ZIP checksum.
+                properties = dict(line.split('=', 1) for line in
+                    (workspace / 'application/.mvn/wrapper/maven-wrapper.properties').read_text().splitlines()
+                    if '=' in line)
+                url = properties['distributionUrl']
+                assert url == 'https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip'
+                with urllib.request.urlopen(url, timeout=60) as response:
+                    maven_zip = response.read()
+                assert hashlib.sha256(maven_zip).hexdigest() == properties['distributionSha256Sum'], 'Maven checksum mismatch'
+                tools = workspace / 'tools'
+                zipfile.ZipFile(io.BytesIO(maven_zip)).extractall(tools)
+                (tools / 'apache-maven-3.9.16/bin/mvn').chmod(0o755)
                 print('Fetched immutable application revision ' + revision)
+                print('Bootstrapped checksum-verified Maven 3.9.16')
             - name: test-and-jib-push
               image: registry.access.redhat.com/ubi9/openjdk-21@sha256:bd995811a45eb587f97a105796f8f43df466a4269411a2a1642f0f9799f885db
               workingDir: $(workspaces.source.path)
@@ -102,10 +117,10 @@ spec:
                 set -eu
                 cd "$(workspaces.source.path)/application"
                 java -version
-                ./mvnw -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" verify -DskipITs=false
+                "$(workspaces.source.path)/tools/apache-maven-3.9.16/bin/mvn" -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" verify -DskipITs=false
                 export QUARKUS_CONTAINER_IMAGE_USERNAME=serviceaccount
                 export QUARKUS_CONTAINER_IMAGE_PASSWORD="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-                ./mvnw -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" package -DskipTests \
+                "$(workspaces.source.path)/tools/apache-maven-3.9.16/bin/mvn" -B -ntp -Dmaven.repo.local="$(workspaces.source.path)/m2" package -DskipTests \
                   -Dquarkus.container-image.build=true \
                   -Dquarkus.container-image.push=true \
                   -Dquarkus.container-image.registry=registry.apps.ocp.box1.org \
