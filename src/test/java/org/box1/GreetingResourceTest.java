@@ -30,7 +30,8 @@ class GreetingResourceTest {
         }
         given().when().get("/api/info").then().statusCode(200)
             .body("name", is("quarkus-reference")).body("javaVersion", is(21))
-            .body("deliveryMode", is("tekton-gitops"));
+            .body("deliveryMode", is("tekton-gitops"))
+            .body("gitRef", is(System.getProperty("expected.git.ref", "unknown")));
     }
 
     @Test

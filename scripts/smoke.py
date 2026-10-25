@@ -2,6 +2,7 @@
 """Smoke-test the live HTTPS Route, preserving certificate verification."""
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -17,7 +18,11 @@ def get(path, accept="application/json"):
 
 greeting = json.loads(get("/api/greetings?name=OpenShift"))
 assert greeting["message"] == prefix + ", OpenShift!", greeting
-assert json.loads(get("/api/info"))["javaVersion"] == 21
+info = json.loads(get("/api/info"))
+assert info["javaVersion"] == 21
+assert re.fullmatch("[a-f0-9]{40}", info["gitRef"]), info
+if os.environ.get("EXPECTED_GIT_REF"):
+    assert info["gitRef"] == os.environ["EXPECTED_GIT_REF"], info
 for suffix in ("live", "ready", "started"):
     assert json.loads(get("/q/health/" + suffix))["status"] == "UP"
 api = json.loads(get("/q/openapi"))

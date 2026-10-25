@@ -9,6 +9,7 @@
     <properties>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
         <maven.compiler.release>21</maven.compiler.release>
+        <git.ref>unknown</git.ref>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
@@ -72,6 +73,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes><exclude>META-INF/box1-build.properties</exclude></excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes><include>META-INF/box1-build.properties</include></includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>${quarkus.platform.group-id}</groupId>
@@ -94,6 +107,7 @@
                     <systemPropertyVariables>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
+                        <expected.git.ref>${git.ref}</expected.git.ref>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -114,6 +128,7 @@
                         <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
+                        <expected.git.ref>${git.ref}</expected.git.ref>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -163,4 +178,16 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>manual-build-git-ref</id>
+            <activation><property><name>env.SOURCE_REVISION</name></property></activation>
+            <properties><git.ref>${env.SOURCE_REVISION}</git.ref></properties>
+        </profile>
+        <profile>
+            <id>pipeline-git-ref</id>
+            <activation><property><name>env.REVISION</name></property></activation>
+            <properties><git.ref>${env.REVISION}</git.ref></properties>
+        </profile>
+    </profiles>
 </project>
