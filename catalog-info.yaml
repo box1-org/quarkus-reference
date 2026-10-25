@@ -10,7 +10,31 @@ metadata:
     argocd/instance-name: openshift-gitops
     argocd/app-selector: backstage.io/kubernetes-id=quarkus-reference
   tags: [java, quarkus, maven, tekton, gitops]
+  links:
+    - url: https://quarkus-reference.apps.ocp.box1.org/q/swagger-ui/
+      title: Swagger UI — test endpoints
+      icon: code
+    - url: https://quarkus-reference.apps.ocp.box1.org/q/openapi
+      title: OpenAPI specification
+      icon: code
+    - url: https://quarkus-reference.apps.ocp.box1.org
+      title: Application Route
 spec:
   type: service
   lifecycle: experimental
   owner: user:default/mike4263
+  providesApis:
+    - quarkus-reference-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: quarkus-reference-api
+  description: OpenAPI contract for quarkus-reference
+  tags: [quarkus, openapi]
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: user:default/mike4263
+  definition:
+    $text: https://quarkus-reference.apps.ocp.box1.org/q/openapi

@@ -105,3 +105,15 @@ exposure and authentication before adapting this application for sensitive data.
 
 The self-service Developer Hub template remains a subsequent phase. Native
 images are deferred.
+
+## API documentation and endpoint testing
+
+Developer Hub populates **Provides APIs** with `quarkus-reference-api`.
+Open the API's **Definition** tab to browse the deployed OpenAPI contract and use
+**Try it out**. The catalog reads `https://quarkus-reference.apps.ocp.box1.org/q/openapi`,
+so the API entity becomes available after the first successful deployment.
+Swagger UI is also available at `https://quarkus-reference.apps.ocp.box1.org/q/swagger-ui/`.
+The production contract targets the public HTTPS Route; override `PUBLIC_API_URL`
+when deploying behind another public address. CORS allows the Developer Hub
+origin to make tester requests without cookies. API authentication, if added,
+should be declared in the OpenAPI contract and supplied through **Authorize**.
