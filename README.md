@@ -22,12 +22,20 @@ application using `@QuarkusIntegrationTest`.
 | Endpoint | Purpose |
 | --- | --- |
 | `/api/greetings?name=Ada` | JSON greeting; defaults to `developer` |
-| `/api/info` | Application version and Java major version |
+| `/api/info` | Application version, Java major version, delivery mode, and full source commit SHA (`gitRef`) |
 | `/q/health/live` | Liveness |
 | `/q/health/ready` | Readiness |
 | `/q/health/started` | Startup |
 | `/q/openapi` | OpenAPI schema; request JSON with `Accept: application/json` |
 | `/q/metrics` | Prometheus metrics, including `box1_greetings_total` |
+
+`gitRef` is embedded into `META-INF/box1-build.properties` by Maven resource
+filtering. Automated builds use the pipeline's exact `REVISION`; the manual
+reference build uses `SOURCE_REVISION`. It identifies the code packaged into the
+image and is independent of runtime configuration. Local builds default to
+`unknown`; supply `-Dgit.ref="$(git rev-parse HEAD)"` to Maven to embed a local ref.
+Only the build-metadata resource is filtered, preserving Quarkus runtime config
+expressions in `application.properties`.
 
 `GREETING_PREFIX` defaults to `Hello` locally. OpenShift's ConfigMap changes it to
 `Hello from box1`. Blank names and names longer than 80 characters return HTTP 400.
