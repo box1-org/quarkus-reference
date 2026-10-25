@@ -16,8 +16,8 @@ public class InfoResource {
     @GET
     @Operation(summary = "Return application and Java runtime versions")
     public ApplicationInfo info() {
-        return new ApplicationInfo("quarkus-reference", version, Runtime.version().feature());
+        return new ApplicationInfo("quarkus-reference", version, Runtime.version().feature(), "tekton-gitops");
     }
 
-    public record ApplicationInfo(String name, String version, int javaVersion) {}
+    public record ApplicationInfo(String name, String version, int javaVersion, String deliveryMode) {}
 }

@@ -2,6 +2,7 @@ package org.box1;
 
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
+import java.util.*;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.hasItems;
@@ -29,7 +30,8 @@ class GreetingResourceTest {
             given().when().get(path).then().statusCode(200).body("status", is("UP"));
         }
         given().when().get("/api/info").then().statusCode(200)
-            .body("name", is("quarkus-reference")).body("javaVersion", is(21));
+            .body("name", is("quarkus-reference")).body("javaVersion", is(21))
+            .body("deliveryMode", is("tekton-gitops"));
     }
 
     @Test
