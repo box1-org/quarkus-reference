@@ -1,7 +1,8 @@
 package org.box1;
 
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GreetingServiceTest {
     private final GreetingService service = new GreetingService("Hello");

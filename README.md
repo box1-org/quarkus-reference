@@ -2,7 +2,7 @@
 
 Reference JVM application for the Box1 golden path. Generated with the official
 Quarkus code service: Quarkus **3.40.1.1**, Java **21**, Maven Wrapper **3.9.16**.
-Application code and its manual Tekton build live here; desired OpenShift state
+Application code and GitHub-driven Tekton workflows live here; desired OpenShift state
 lives in [`box1-gitops`](https://github.com/box1-org/box1-gitops).
 
 ## Run and test
@@ -32,49 +32,57 @@ application using `@QuarkusIntegrationTest`.
 `GREETING_PREFIX` defaults to `Hello` locally. OpenShift's ConfigMap changes it to
 `Hello from box1`. Blank names and names longer than 80 characters return HTTP 400.
 
-## Build and delivery
+## Automated CI/CD
 
-`ci/reference-build.yaml` is a **manual** Tekton PipelineRun for Phase 2; it is
-outside `.tekton/` and is not yet a self-service/PAC application template.
-The operator submits it with a full source commit SHA. It downloads that commit
-using a short-lived, Contents-read GitHub installation token from the transient
-`box1-ci/quarkus-reference-source` Secret. The token is available only to the
-source-fetch step; it is not mounted in Maven build steps or the runtime.
-Revoke the token and remove that transient Secret after the build completes.
+Application workflows live in `.tekton/`; shared Tasks are maintained in
+`box1-gitops/platform/pipelines/tasks` and synchronized into `box1-ci` by Argo CD.
+Pipelines as Code resolves the named cluster Tasks for each GitHub event and
+reports the final result to GitHub.
 
-The fetch step bootstraps the exact Maven ZIP pinned by the wrapper properties,
-verifies its SHA-256 and extracts it with Python. This handles the minimal UBI
-Java image without an `unzip` binary and preserves checksum verification.
-Tekton runs `verify -DskipITs=false` before building/pushing with the Quarkus Jib
-extension. It uses the existing `ci-build` identity, writes only to the `box1-ci`
-registry project, and has no application deployment permissions. This trusted
-reference build is for platform-maintainer code; it is not an untrusted PR runner.
-Jib requires no Docker socket, daemon, privileged container, or native compilation.
-The build image and UBI 9 OpenJDK 21 runtime are pinned to verified image digests.
-Registry TLS verification stays enabled; push uses the public TLS Route and a
-short-lived Kubernetes service-account token. The PipelineRun emits `image-digest`.
+- Pull requests targeting `main`: fetch exact source SHA, compile, unit/HTTP and
+  packaged JVM tests, Checkstyle, and SpotBugs with FindSecBugs. No image is pushed.
+- Pushes/merges to `main`: repeat verification, build with Jib, push a SHA-tagged
+  image, and capture the immutable image digest.
+- Promotion opens a GitOps PR changing only the reference image digest and source
+  annotations. Development merges automatically after the required GitOps checks
+  succeed on the exact PR head SHA. An `approval` policy leaves the PR open.
+- Argo CD deploys the merged desired state. A read-only observer waits for the
+  expected source revision and running digest, then smoke-tests the HTTPS Route.
+  No deployment command is executed by Tekton or a human after the application
+  merge. A failed test, security/lint check, GitOps check, rollout, or smoke test
+  fails the corresponding GitHub check. A stale source build is not promoted.
 
-To submit from a checkout after provisioning the short-lived source Secret:
+`ci-test` has no automatically mounted API token, registry push access, or mounted
+GitOps credential in the Maven container. PAC uses default-branch provenance, so
+PR edits cannot replace the pipeline definition used to execute that PR. Source
+fetch is platform-owned code with the temporary GitHub token only in that step.
+Trusted main builds use `ci-build` for registry push, `ci-gitops` for the promotion
+API calls, and `ci-observe` for read-only rollout observation. Only platform
+maintainers should have direct Pod/PipelineRun creation rights in `box1-ci`.
 
-```sh
-python3 - <<'PYCODE' > /tmp/quarkus-reference-build.yaml
-from pathlib import Path
-import subprocess
-sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-print(Path('ci/reference-build.yaml').read_text().replace('REPLACE_WITH_COMMIT_SHA', sha))
-PYCODE
-kubectl create -f /tmp/quarkus-reference-build.yaml
-```
+PAC issues short-lived App tokens scoped explicitly to this repository plus
+`box1-org/box1-gitops`. No static source Secret or personal access token is needed.
+The build uses the existing UBI Java 21 runtime and Maven checksum pins. Jib needs
+no Docker daemon, socket, or privileged container. Static analysis checks source
+bugs/security patterns; it is not a dependency-vulnerability database scan.
 
-After a successful build, the platform operator records the emitted digest in
-`box1-gitops/workloads/quarkus-reference/kustomization.yaml`. The Argo CD
-`quarkus-reference` Application reconciles that Git state. No application
-PipelineRun runs `oc apply`, `kubectl apply`, or an Argo sync command.
+The required development GitOps checks are:
 
-The runtime pulls by digest from the internal registry service. Its dedicated
-ServiceAccount has pull access to the `box1-ci` image project, no push access,
-and no mounted Kubernetes API token. Deployment, Service, HTTPS Route, ConfigMap,
-health probes, resource bounds, and rollout policy are all tracked in GitOps.
+- `Pipelines as Code CI / box1-phase1-smoke-`
+- `Pipelines as Code CI / box1-gitops-validate-`
+
+The promotion Task enforces these checks, the expected App identity, immutable
+head SHA, and exact allowed file contents before calling GitHub's merge API.
+It does not bypass configured GitHub branch rules; additional approval/rules can
+prevent the merge. Other environments should select `approval` and retain their
+own reviewer/branch rules. GitOps and application repository changes remain
+independently visible for review.
+
+## Manual reference build
+
+`ci/reference-build.yaml` is retained as the Phase 2 reproduction path. It needs
+a separately provisioned short-lived `quarkus-reference-source` Secret. Normal
+GitHub CI/CD uses `.tekton/` and does not require that manual Secret or submission.
 
 ## Live HTTP smoke test
 
@@ -87,5 +95,5 @@ OpenAPI, Prometheus metrics and HTTP 400 validation, with TLS verification enabl
 Health and metrics are publicly reachable through the reference lab Route; review
 exposure and authentication before adapting this application for sensitive data.
 
-The self-service Developer Hub template, automatic cross-repo GitOps updates,
-and untrusted PR isolation are subsequent phases. Native images are deferred.
+The self-service Developer Hub template remains a subsequent phase. Native
+images are deferred.
