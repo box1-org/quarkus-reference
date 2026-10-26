@@ -3,7 +3,7 @@
 Reference JVM application for the Box1 golden path. Generated with the official
 Quarkus code service: Quarkus **3.40.1.1**, Java **21**, Maven Wrapper **3.9.16**.
 Application code and GitHub-driven Tekton workflows live here; desired OpenShift state
-lives in [`box1-gitops`](https://github.com/box1-org/box1-gitops).
+lives in [`box1-workloads-dev`](https://github.com/box1-org/box1-workloads-dev).
 
 ## Run and test
 
@@ -69,7 +69,7 @@ API calls, and `ci-observe` for read-only rollout observation. Only platform
 maintainers should have direct Pod/PipelineRun creation rights in `box1-ci`.
 
 PAC issues short-lived App tokens scoped explicitly to this repository plus
-`box1-org/box1-gitops`. No static source Secret or personal access token is needed.
+`box1-org/box1-workloads-dev`. No static source Secret or personal access token is needed.
 The build uses the existing UBI Java 21 runtime and Maven checksum pins. Jib needs
 no Docker daemon, socket, or privileged container. Static analysis checks source
 bugs/security patterns; it is not a dependency-vulnerability database scan.
