@@ -22,7 +22,7 @@ metadata:
 spec:
   type: service
   lifecycle: experimental
-  owner: user:default/mike4263
+  owner: user:default/mike
   providesApis:
     - quarkus-reference-api
 ---
@@ -35,6 +35,6 @@ metadata:
 spec:
   type: openapi
   lifecycle: experimental
-  owner: user:default/mike4263
+  owner: user:default/mike
   definition:
     $text: https://quarkus-reference.apps.ocp.box1.org/q/openapi
